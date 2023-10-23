@@ -46,13 +46,14 @@ linkerd check --pre
 You should have all the checks pass. If there are any checks that do not pass, make sure to follow the provided links in the output and fix those issues before proceeding
 
 5. Generate certificates installing Linkerd with Helm (skip this if you have your own certificates already available)
+
 Generate the trust anchor certificate:
 ```
-step certificate create root.linkerd.cluster.local ca.crt ca.key \ --profile root-ca --no-password --insecure
+step certificate create root.linkerd.cluster.local ca.crt ca.key --profile root-ca --no-password --insecure
 ```
 Generate the issues certificate and key: 
 ```
-step certificate create identity.linkerd.cluster.local issuer.crt issuer.key \ --profile intermediate-ca --not-after 8760h --no-password --insecure \ --ca ca.crt --ca-key ca.key
+step certificate create identity.linkerd.cluster.local issuer.crt issuer.key --profile intermediate-ca --not-after 8760h --no-password --insecure --ca ca.crt --ca-key ca.key
 ```
 6. Add the Linkerd Helm repo
 ```
@@ -72,8 +73,12 @@ helm install linkerd-control-plane -n linkerd \
 ```
 9. Clone the Linkerd examples repository to your local machine, and then `cd` into it and add the new remote endpoint 
 ```
-git clone https://github.com/linkerd/linkerd-examples.git \
-cd linkerd-examples \
+git clone https://github.com/linkerd/linkerd-examples.git
+```
+```
+cd linkerd-examples 
+```
+```
 git remote add git-server git://localhost/linkerd-examples.git
 ```
 10. Deploy the Git server to the `scm` namespace in your cluster
@@ -112,8 +117,7 @@ kubectl -n argocd rollout status statefulset/argocd-application-controller
 ```
 Then use port-forwarding to access the Argo CD UI: 
 ```
-kubectl -n argocd port-forward svc/argocd-server 8080:443  \
-  > /dev/null 2>&1 &
+kubectl -n argocd port-forward svc/argocd-server 8080:443 > /dev/null 2>&1 &
 ```
 The Argo CD UI should now be visible when you visit [https://localhost:8080/](https://localhost:8080/)
 
