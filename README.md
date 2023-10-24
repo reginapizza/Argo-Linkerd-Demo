@@ -5,6 +5,7 @@
 - Install kubectl
 - Install Helm
 - Install step
+- A fork of this repo
 
 1. Install Argo CD in your cluster
 ```
@@ -55,58 +56,8 @@ Generate the issues certificate and key:
 ```
 step certificate create identity.linkerd.cluster.local issuer.crt issuer.key --profile intermediate-ca --not-after 8760h --no-password --insecure --ca ca.crt --ca-key ca.key
 ```
-6. Add the Linkerd Helm repo
-```
-helm repo add linkerd https://helm.linkerd.io/stable
-```
-7. Install the linkerd-crds chart
-```
-helm install linkerd-crds linkerd/linkerd-crds -n linkerd --create-namespace
-```
-8. Install the linkerd-control-plane chart
-```
-helm install linkerd-control-plane -n linkerd \
- --set-file identityTrustAnchorsPEM=ca.crt \
- --set-file identity.issuer.tls.crtPEM=issuer.crt \
- --set-file identity.issuer.tls.keyPEM=issuer.key \
- linkerd/linkerd-control-plane
-```
-9. Clone the Linkerd examples repository to your local machine, and then `cd` into it and add the new remote endpoint 
-```
-git clone https://github.com/linkerd/linkerd-examples.git
-```
-```
-cd linkerd-examples 
-```
-```
-git remote add git-server git://localhost/linkerd-examples.git
-```
-10. Deploy the Git server to the `scm` namespace in your cluster
-```
-kubectl apply -f gitops/resources/git-server.yaml
-```
-Then confirm that the git server is healthy:
-```
-kubectl -n scm rollout status deploy/git-server
-```
-11. Clone the example repo to your git server
-```
-git_server=`kubectl -n scm get po -l app=git-server -oname | awk -F/ '{ print $2 }'`
 
-kubectl -n scm exec "${git_server}" -- \
-  git clone --bare https://github.com/linkerd/linkerd-examples.git
-```
-Then confirm that the remote repo was successfully cloned: 
-```
-kubectl -n scm exec "${git_server}" -- ls -al /git/linkerd-examples.git
-```
-Now confirm that you can push from the local repo to the remote repo with port-forwarding:
-```
-kubectl -n scm port-forward "${git_server}" 9418  &
-
-git push git-server master
-```
-12. Access the Argo CD Dashboard
+6. Access the Argo CD Dashboard
 First confirm that all argocd pods are ready with:
 ```
 for deploy in "dex-server" "redis" "repo-server" "server"; \
@@ -121,7 +72,7 @@ kubectl -n argocd port-forward svc/argocd-server 8080:443 > /dev/null 2>&1 &
 ```
 The Argo CD UI should now be visible when you visit [https://localhost:8080/](https://localhost:8080/)
 
-13. Log into Argo CD
+7. Log into Argo CD
 To get the initial admin password, run:
 ```
 argocd admin initial-password -n argocd
@@ -130,7 +81,7 @@ Then log into the UI with username as `admin` and the password from the output a
 
 Note: This password is meant to be used to log into initially, after that it is recommended that you delete the `argocd-initial-admin-secret` from the `argocd` namespace once you have changed the password. You can change the admin password with `argocd account update-password`. Since this is only for demo purposes, we will not be showing this. 
 
-14. Authenticate the Argo CD CLI
+8. Authenticate the Argo CD CLI
 ```
 password=`kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d`
 
@@ -139,28 +90,58 @@ argocd login 127.0.0.1:8080 \
   --password="${password}" \
   --insecure
 ```
-15. Now set up the `demo` project to group our applications:
+9. Create the linkerd namespace
 ```
-kubectl apply -f gitops/project.yaml
+kubectl create namespace linkerd
 ```
-This project defines the list of permitted resource kinds and target clusters that our applications can work with.
 
-Now confirm that the project is deployed correctly with:
+10. Add the linkerd helm charts as a repo: 
 ```
-argocd proj get demo
+argocd repo add https://helm.linkerd.io/stable --type helm --name stable
 ```
-If you refresh the UI, you should now see your demo project. 
 
-16. Deploy the main application, which serves as a parent for all the other applications:
+11. Add the `linkerd-crd` helm chart as an application:
 ```
-kubectl apply -f gitops/main.yaml
+argocd app create linkerd-crds --repo https://helm.linkerd.io/stable --helm-chart linkerd-crds --revision 1.8.0 --dest-namespace linkerd --dest-server https://kubernetes.default.svc
+```
+
+12. Add the `linkerd-control-plane` helm chart as an application:
+```
+argocd app create linkerd-control-plane     --repo https://helm.linkerd.io/stable     --helm-chart linkerd-control-plane     --revision 1.16.2     --dest-namespace linkerd     --dest-server https://kubernetes.default.svc     --helm-set identityTrustAnchorsPEM="$(cat ca.crt)"     --helm-set identity.issuer.tls.crtPEM="$(cat issuer.crt)"     --helm-set identity.issuer.tls.keyPEM="$(cat issuer.key)"
+```
+
+13. Sync both the applications.
+```
+`argocd app sync linkerd-crd linkerd-control-plane`
+```
+You should see them both in sync and healthy.
+
+14. Get a list of your CRDs
+```
+kubectl get crds
+```
+15. Try deleting one of your CRDs, for instance, `httproutes.policy.linkerd.io`
+```
+kubectl delete crd httproutes.policy.linkerd.io
+```
+16. Go back to the Argo CD UI and refresh the `linkerd-crd` app. You will see that it becomes `Missing` and `OutOfSync`. 
+
+17. Now sync the `linkerd-crd` app. You will see that it recovers and goes back to `Synced` and `Healthy`. If you go back to your terminal and run `kubectl get crds` again, you will see the CRD for `httproutes.policy.linkerd.io` back!
+
+18.  Let's deploy the Faces demo application. Create the namespace `faces`:
+```
+kubectl create namespace faces
+```
+then create the application with: 
+```
+argocd app create faces-app   --repo https://github.com/[YOUR_USERNAME]/Argo-Linkerd-Demo.git   --path faces   --dest-namespace default   --dest-server https://kubernetes.default.svc   --revision HEAD
 ```
 And now confirm that it deployed successfully:
 ```
-argocd app get main
+argocd app get faces-app
 ```
-You can sync the main application either through the Argo CD UI, or with `argocd app sync main`. 
+You can sync the main application either through the Argo CD UI, or with `argocd app sync faces-app`. 
 
-17. TBC...
+19. TBC...
 
 
