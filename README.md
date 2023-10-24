@@ -177,7 +177,17 @@ kubectl create namespace argo-rollouts
 ```
 kubectl apply -n argo-rollouts -f https://github.com/argoproj/argo-rollouts/releases/latest/download/install.yaml
 ```
-21.  
+21. Apply the `rollout.yaml` and `service.yaml` file from this repository:
+```
+kubectl apply -f https://raw.githubusercontent.com/reginapizza/Argo-Linkerd-Demo/main/argo-rollouts/rollout.yaml
+```
+```
+kubectl apply -f https://raw.githubusercontent.com/reginapizza/Argo-Linkerd-Demo/main/argo-rollouts/service.yaml
+```
+22. Now using the Argo Rollouts kubectl plugin, let's visualize the rollout as it deploys with:
+```
+kubectl argo rollouts get rollout faces-rollout --watch
+```
 
 
 
