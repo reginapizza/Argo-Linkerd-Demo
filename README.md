@@ -142,6 +142,43 @@ argocd app get faces-app
 ```
 You can sync the main application either through the Argo CD UI, or with `argocd app sync faces-app`. 
 
-19. TBC...
+### Now let's play around with Argo Rollouts!
+
+19. First we need to install the argo-rollouts kubectl plugin. It is optional, but convenient for managing and visualizing rollout from the command line.
+
+With Brew: 
+```
+brew install argoproj/tap/kubectl-argo-rollouts
+```
+Manual: 
+```
+curl -LO https://github.com/argoproj/argo-rollouts/releases/latest/download/kubectl-argo-rollouts-darwin-amd64
+``` 
+(for Linux distros, replace `darwin` with `linux` in the above command)
+
+Make the binary executable:
+```
+chmod +x ./kubectl-argo-rollouts-darwin-amd64
+```
+
+Move the binary to your PATH: 
+```
+sudo mv ./kubectl-argo-rollouts-darwin-amd64 /usr/local/bin/kubectl-argo-rollouts
+```
+
+Ensure you have it working properly:
+```
+kubectl argo rollouts version
+```
+20. Create the namespace for argo-rollouts and install the CRDs:
+```
+kubectl create namespace argo-rollouts
+```
+```
+kubectl apply -n argo-rollouts -f https://github.com/argoproj/argo-rollouts/releases/latest/download/install.yaml
+```
+21.  
+
+
 
 
