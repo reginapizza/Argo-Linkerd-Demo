@@ -1,12 +1,28 @@
+---
 apiVersion: v1
 kind: Service
 metadata:
-  name: faces-rollout
+  name: faces-rollout-canary
+  namespace: faces
 spec:
   ports:
-  - port: 80
-    targetPort: http
-    protocol: TCP
-    name: http
+    - port: 8989
+      targetPort: 8989
+      protocol: TCP
+      name: http
+  selector:
+    app: faces-rollout
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: faces-rollout-stable
+  namespace: faces
+spec:
+  ports:
+    - port: 8989
+      targetPort: 8989
+      protocol: TCP
+      name: http
   selector:
     app: faces-rollout
