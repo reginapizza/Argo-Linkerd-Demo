@@ -1,6 +1,7 @@
 # Argo-Linkerd-Demo
 
 <!-- @import demosh/check-requirements.sh -->
+<!-- @import demosh/check-github.sh -->
 
 ### Prerequisites:
 
@@ -234,7 +235,7 @@ then create the application with:
 
 ```bash
 argocd app create faces-app \
-       --repo https://github.com/${USER}/Argo-Linkerd-Demo.git \
+       --repo https://github.com/${GITHUB_USER}/Argo-Linkerd-Demo.git \
        --path faces \
        --dest-namespace faces \
        --dest-server https://kubernetes.default.svc \
