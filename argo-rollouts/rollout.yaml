@@ -2,36 +2,50 @@ apiVersion: argoproj.io/v1alpha1
 kind: Rollout
 metadata:
   name: faces-rollout
+  namespace: faces
 spec:
   replicas: 5
   strategy:
     canary:
+      canaryService: color-canary
+      stableService: color-stable
+      plugins:
+          argoproj-labs/gatewayAPI:
+            httpRoute: color-route # our created httproute
+            namespace: faces
       steps:
-      - setWeight: 20
-      - pause: {}
-      - setWeight: 40
-      - pause: {duration: 10}
-      - setWeight: 60
-      - pause: {duration: 10}
-      - setWeight: 80
-      - pause: {duration: 10}
+        - setWeight: 30
+        - pause: {}
+        - setWeight: 40
+        - pause: { duration: 15 }
+        - setWeight: 60
+        - pause: { duration: 15 }
+        - setWeight: 80
+        - pause: { duration: 15 }
   revisionHistoryLimit: 2
   selector:
     matchLabels:
-      app: faces-rollout
+      service: color
   template:
     metadata:
       labels:
-        app: faces-rollout
+        service: color
     spec:
       containers:
-      - name: faces-rollout
-        image: faces-rollout:blue
+      - name: color
+        image: dwflynn/faces-service:0.8.0
         ports:
-        - name: http
-          containerPort: 8080
-          protocol: TCP
+        - containerPort: 8000
+          name: http
+        env:
+        - name: FACES_SERVICE
+          value: "color"
+        - name: COLOR
+          value: "green"
         resources:
           requests:
-            memory: 32Mi
-            cpu: 5m
+            cpu: 100m
+            memory: 64Mi
+          limits:
+            cpu: 250m
+            memory: 128Mi
