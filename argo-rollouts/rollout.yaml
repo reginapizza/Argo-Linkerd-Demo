@@ -7,12 +7,12 @@ spec:
   replicas: 5
   strategy:
     canary:
-      canaryService: faces-rollout-canary
-      stableService: faces-rollout-stable
+      canaryService: color-canary
+      stableService: color-stable
       plugins:
           argoproj-labs/gatewayAPI:
-            httpRoute: argo-rollouts-http-route # our created httproute
-            namespace: test
+            httpRoute: color-route # our created httproute
+            namespace: faces
       steps:
         - setWeight: 30
         - pause: {}
@@ -25,21 +25,27 @@ spec:
   revisionHistoryLimit: 2
   selector:
     matchLabels:
-      app: faces-rollout
+      service: color
   template:
     metadata:
-      annotations:
-          linkerd.io/inject: enabled
       labels:
-        app: faces-rollout
+        service: color
     spec:
       containers:
-      - name: faces-rollout
+      - name: color
         image: dwflynn/faces-service:0.8.0
         ports:
-        - containerPort: 9898
-          protocol: TCP
+        - containerPort: 8000
+          name: http
+        env:
+        - name: FACES_SERVICE
+          value: "color"
+        - name: COLOR
+          value: "green"
         resources:
           requests:
-            memory: 32Mi
-            cpu: 5m
+            cpu: 100m
+            memory: 64Mi
+          limits:
+            cpu: 250m
+            memory: 128Mi
