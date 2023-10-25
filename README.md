@@ -236,7 +236,7 @@ then create the application with:
 argocd app create faces-app \
        --repo https://github.com/${USER}/Argo-Linkerd-Demo.git \
        --path faces \
-       --dest-namespace default \
+       --dest-namespace faces \
        --dest-server https://kubernetes.default.svc \
        --revision HEAD
 ```
