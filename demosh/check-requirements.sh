@@ -28,6 +28,7 @@ check_argocd_version () {
 check linkerd "https://linkerd.io/2/getting-started/"
 check argocd "https://argo-cd.readthedocs.io/en/stable/getting_started/"
 check kubectl "https://kubernetes.io/docs/tasks/tools/"
+check kubectl-argo-rollouts "https://argo-rollouts.readthedocs.io/en/stable/installation/#kubectl-plugin-installation"
 check step "https://smallstep.com/docs/step-cli/installation"
 check bat "https://github.com/sharkdp/bat"
 
