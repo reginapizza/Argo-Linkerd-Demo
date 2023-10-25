@@ -35,7 +35,7 @@ spec:
     spec:
       containers:
       - name: faces-rollout
-        image: quay.io/???/faces-rollouts:v1.2.3 # need to update this
+        image: dwflynn/faces-service:0.8.0
         ports:
         - containerPort: 9898
           protocol: TCP
