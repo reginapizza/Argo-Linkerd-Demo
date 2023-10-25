@@ -183,7 +183,7 @@ This tells Argo CD to go ahead and make the cluster look like the applications
 we've defined.
 
 ```bash
-argocd app sync linkerd-crd linkerd-control-plane
+argocd app sync linkerd-crds linkerd-control-plane
 ```
 
 You should see them both in sync and healthy in the Argo CD dashboard.
