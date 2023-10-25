@@ -189,17 +189,35 @@ argocd app sync linkerd-crds linkerd-control-plane
 
 You should see them both in sync and healthy in the Argo CD dashboard.
 
+## Argo CD Application resources
+
+Note that when you run `argocd app create`, what happens under the hood is
+that Argo CD actually creates an Application resource in the cluster. For
+example, here's the Application for the `linkerd-crds` app:
+
+```bash
+kubectl get application -n argocd linkerd-crds -o yaml | bat -l yaml
+```
+
+While we're showing using the `argocd` command line to create Applications in
+this demo, you can also commit the Application resources to Git and use Argo
+CD to support a workflow that uses GitOps for everything. This is very common
+in production use cases.
+
 <!-- @wait_clear -->
 
 ## Argo CD will correct drift
 
-Let's take a look at the Linkerd CRDs:
+One of the major things that Argo CD can do is to correct drift between what's
+actually in the cluster, and what you want to be in the cluster. For example,
+let's take a look at the Linkerd CRDs:
 
 ```bash
 kubectl get crds | grep linkerd.io
 ```
 
-We see a few different CRDs. Let's try deleting one -- a good candidate is
+We see a few different CRDs, all of which were installed when we synced the
+`linkerd-crds` app. Let's try deleting one -- a good candidate is
 `httproutes.policy.linkerd.io` since it's not yet in use. (Kubernetes won't
 allow deleting a CRD that is in use.)
 
@@ -225,13 +243,36 @@ kubectl get crds | grep linkerd.io
 
 ## Using Argo CD with GitHub
 
-Let's deploy the Faces demo application from your clone of this repo.
+Now that we have Linkerd running, let's use Argo CD to deploy our Faces demo
+application. Rather than basing it on a Helm chart, we'll instead use
+manifests stored in our GitHub repo. The manifests live in the `faces`
+directory:
 
 ```bash
-kubectl create namespace faces
+ls -l faces
 ```
 
-then create the application with:
+<!-- @wait -->
+
+We have several files here:
+
+- `namespace.yaml` creates the `faces` namespace and configures it for Linkerd
+  auto-injection.
+
+- `faces-gui.yaml` contains everything needed for the `faces-gui` workload,
+  which serves the HTML and JavaScript of the Faces SPA.
+
+- `face.yaml` contains the Service and Deployment for the `face` workload.
+
+- `face-route.yaml` contains the HTTPRoute that we'll use for rollouts of the
+  `face` workload.
+
+- `smiley.yaml` and `color.yaml`, finally, contain everything needed for the
+  `smiley` and `color` workloads.
+
+<!-- @wait -->
+
+We'll start by defining our Argo CD application:
 
 ```bash
 argocd app create faces-app \
@@ -241,21 +282,93 @@ argocd app create faces-app \
        --dest-server https://kubernetes.default.svc \
        --revision HEAD
 ```
-And now confirm that it deployed successfully:
+
+We can make sure it deployed successfully with `argocd app get`.
 
 ```bash
 argocd app get faces-app
 ```
 
-Finally, sync up Faces as well:
+Finally, we can sync it up with `argocd app sync`, as before.
+
 
 ```bash
 argocd app sync faces-app
 ```
 
-You should see Faces sync'd in the browser, too.
+You should see Faces sync'd in the browser, too. Let's start by checking
+Faces' Pods:
 
+```bash
+kubectl get pods -n faces
+```
+
+That looks good. Note that each Pod has two containers: one is the application
+container, the other is the Linkerd proxy.
+
+Let's go ahead and check out Faces, via a port-forward.
+
+```bash
+kubectl -n faces port-forward svc/faces-gui 8080:443 > /dev/null 2>&1 &
+```
+
+<!-- @browser_then_terminal -->
+
+So Faces is running, but it's weird that we're getting grey backgrounds: they
+should be green, and the grey background implies that the `face` workload
+can't talk to the `color` workload. Let's take a quick look at the `color`
+HTTPRoute.
+
+```bash
+kubectl get httproutes.gateway.networking.k8s.io -n faces color-route -o yaml \
+    | bat -l yaml
+```
+
+Ah, there's a typo in the `backendsRef` -- it says `colorr` with two `r`s,
+instead of `color`. We can fix that by committing a fixed HTTPRoute to GitHub
+and then re-syncing our app. Here's the fixed HTTPRoute:
+
+```bash
+bat faces-02-fixed-route/color-route.yaml
+```
+
+We can copy that into the directory that Argo CD is using, then commit and
+push:
+
+```bash
+cp faces-02-fixed-route/color-route.yaml faces/color-route.yaml
+git diff
+git add faces/color-route.yaml
+git commit -m "Fix color-route backendRef"
+git push
+```
+
+Once that's done, let's resync the app.
+
+```bash
+argocd app sync faces-app
+```
+
+Now we should see that all is well from the browser.
+
+<!-- @browser_then_terminal -->
+
+### DONE HERE
 <!-- @wait -->
+
+This shows nothing, due to an unfortunate situation with the Kubernetes
+APIserver. We have two kinds of HTTPRoutes: those in the `policy.linkerd.io`
+API group and those in the `gateway.networking.k8s.io` API group. We can't
+control which will be attached to the short name `httproute`, and in practice
+`policy.linkerd.io` seems to win. So let's repeat that `kubectl get` with the
+fully-qualified HTTPRoute:
+
+<!-- @browser_then_terminal -->
+
+
+<!-- @wait_clear -->
+
+<!-- @browser_then_terminal -->
 
 ### Now let's play around with Argo Rollouts!
 
