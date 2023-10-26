@@ -43,6 +43,12 @@ spec:
           value: "color"
         - name: COLOR
           value: "green"
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 1
+          periodSeconds: 1
         resources:
           requests:
             cpu: 100m
