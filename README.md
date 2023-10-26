@@ -56,6 +56,8 @@ kubectl -n argocd port-forward svc/argocd-server 8080:443 > /dev/null 2>&1 &
 
 The Argo CD UI should now be visible when you visit https://localhost:8080/.
 
+<!-- @browser_then_terminal -->
+
 To get the initial admin password, run:
 
 ```bash
@@ -71,7 +73,7 @@ is recommended that you delete the `argocd-initial-admin-secret` from the
 admin password with `argocd account update-password`. Since this is only for
 demo purposes, we will not be showing this.
 
-<!-- @wait_clear -->
+<!-- @browser_then_terminal -->
 
 We'll be using the `argocd` CLI for our next steps, which means that we need to authenticate the CLI:
 
@@ -156,7 +158,10 @@ argocd app create linkerd-crds \
        --dest-server https://kubernetes.default.svc
 ```
 
-<!-- @wait_clear -->
+At this point, we should see the `linkerd-crds` application in the Argo
+dashboard.
+
+<!-- @browser_then_terminal -->
 
 ### Add the `linkerd-control-plane` app
 
@@ -177,20 +182,26 @@ argocd app create linkerd-control-plane \
        --helm-set identity.issuer.tls.keyPEM="$(cat keys/issuer.key)"
 ```
 
-<!-- @wait_clear -->
+And now we should see the `linkerd-control-plane` application in the Argo
+dashboard.
+
+<!-- @browser_then_terminal -->
 
 ### Sync both applications
 
-This tells Argo CD to go ahead and make the cluster look like the applications
-we've defined.
+Both applications show up as `OutOfSync` and `Missing` -- this is because we
+haven't actually installed anything yet. Let's go ahead and sync them both,
+which tells Argo CD to go ahead and make the cluster look like the
+applications we've defined.
 
 ```bash
 argocd app sync linkerd-crds linkerd-control-plane
 ```
 
-You should see them both in sync and healthy in the Argo CD dashboard.
+We can watch the sync progress from the Argo CD dashboard.
 
 <!-- @browser_then_terminal -->
+
 ## Argo CD Application resources
 
 Note that when you run `argocd app create`, what happens under the hood is
@@ -201,10 +212,10 @@ example, here's the Application for the `linkerd-crds` app:
 kubectl get application -n argocd linkerd-crds -o yaml | bat -l yaml
 ```
 
-While we're showing using the `argocd` command line to create Applications in
-this demo, you can also commit the Application resources to Git and use Argo
-CD to support a workflow that uses GitOps for everything. This is very common
-in production use cases.
+So far we've shown using the `argocd` command line to create Applications in
+this demo, but you can also commit the Application resources to Git and use
+Argo CD to support a workflow that uses GitOps for everything. This is very
+common in production use cases.
 
 <!-- @wait_clear -->
 
@@ -223,10 +234,9 @@ the rest. Let's go ahead and apply that:
 kubectl apply -f emissary/emissary-app.yaml
 ```
 
-Then we can sync it. We'll go back and watch that from the GUI.
+Then we can sync it. We'll go manage that from the GUI.
 
 <!-- @browser_then_terminal -->
-<!-- @clear -->
 
 ## Argo CD will correct drift
 
@@ -251,11 +261,14 @@ Go back to the Argo CD dashboard and refresh all the apps (there's a REFRESH
 APPS button). You will see that the `linkerd-crd` app shows `Missing` and
 `OutOfSync`.
 
-<!-- @wait -->
+<!-- @browser_then_terminal -->
 
 To correct this, hit the `SYNC` button for the `linkerd-crd` app. You will see
-that it recovers and goes back to `Synced` and `Healthy` -- and indeed, we can
-see that Argo has replaced the missing CRD:
+that it recovers and goes back to `Synced` and `Healthy`.
+
+<!-- @browser_then_terminal -->
+
+And indeed, we can see that Argo has replaced the missing CRD:
 
 ```bash
 kubectl get crds | grep linkerd.io
@@ -274,8 +287,6 @@ directory:
 ls -l faces
 ```
 
-<!-- @wait -->
-
 We have several files here:
 
 - `namespace.yaml` creates the `faces` namespace and configures it for Linkerd
@@ -289,7 +300,7 @@ We have several files here:
 
 - `color-route.yaml` contains the HTTPRoute for the `color` workload.
 
-<!-- @wait -->
+<!-- @wait_clear -->
 
 We'll start by defining our Argo CD application:
 
@@ -308,8 +319,11 @@ We can make sure it deployed successfully with `argocd app get`.
 argocd app get faces-app
 ```
 
-Finally, we can sync it up with `argocd app sync`, as before.
+Of course, we can also see it in the dashboard.
 
+<!-- @browser_then_terminal -->
+
+Finally, we can sync it up with `argocd app sync`, as before.
 
 ```bash
 argocd app sync faces-app
@@ -319,17 +333,16 @@ You should see Faces sync'd in the browser, too. Let's start by checking
 Faces' Pods:
 
 ```bash
+kubectl rollout status -n faces deploy
 kubectl get pods -n faces
 ```
 
 That looks good. Note that each Pod has two containers: one is the application
 container, the other is the Linkerd proxy.
 
-Let's go ahead and check out Faces, via a port-forward.
-
-```bash
-kubectl -n faces port-forward svc/faces-gui 8000:80 > /dev/null 2>&1 &
-```
+Since we have Faces running behind Emissary, and we created this k3d cluster
+to expose Emissary's loadbalancer to our host, we can access Faces from our
+browser without a port-forward. Let's do that now.
 
 <!-- @browser_then_terminal -->
 
@@ -356,7 +369,7 @@ push:
 
 ```bash
 cp faces-02-fixed-route/color-route.yaml faces/color-route.yaml
-git diff
+git diff faces/color-route.yaml
 git add faces/color-route.yaml
 git commit -m "Fix color-route backendRef"
 git push
@@ -436,18 +449,22 @@ argocd app sync faces-app --prune
 
 <!-- @wait_clear -->
 
-Once that's done, we can look at the status of the `color-rollout` Rollout:
+Once that's done, we can look at the status of the `color-rollout` Rollout. It
+should show that its `stable` version is running.
 
 ```bash
 kubectl argo rollouts -n faces get rollout color-rollout
 ```
 
 <!-- @wait_clear -->
+<!-- @show_composite -->
 
 ### Rolling out a new version of `color`
 
-To actually use rollout, we just need to edit the Rollout to change something.
-Let's switch our green color to purple: just change the value of the `COLOR` environment variable to `purple`.
+To roll out a new version, we just need to edit the Rollout to reflect the new
+version we want, and then let Argo Rollouts take it from there. Let's switch
+our green color to purple: just change the value of the `COLOR` environment
+variable to `purple`.
 
 ```bash
 kubectl edit rollout -n faces color-rollout
@@ -457,7 +474,7 @@ Now using the Argo Rollouts kubectl plugin, let's visualize the rollout as it
 deploys with. Once you start seeing some purple, you can use ^C to interrupt the watch.
 
 ```bash
-kubectl argo rollouts -n faces get rollout faces-rollout --watch
+kubectl argo rollouts -n faces get rollout color-rollout --watch
 ```
 
 Note that shows as Paused. Why?
@@ -483,7 +500,8 @@ rollout:
 
 <!-- @wait -->
 
-Since there's no `duration` on the first `pause`, the rollout will pause until we explicitly promote it. Let's do that now.
+Since there's no `duration` on the first `pause`, the rollout will pause until
+we explicitly promote it. Let's do that now.
 
 ```bash
 kubectl argo rollouts -n faces promote color-rollout
@@ -493,7 +511,7 @@ Now we can run the watch again, and we'll see it continuing along until we
 have all purple, and the canary is scaled down.
 
 ```bash
-kubectl argo rollouts -n faces get rollout faces-rollout --watch
+kubectl argo rollouts -n faces get rollout color-rollout --watch
 ```
 
 <!-- @clear -->
