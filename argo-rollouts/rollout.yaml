@@ -16,7 +16,7 @@ spec:
             namespace: argo-rollouts
       steps:
         - setWeight: 30
-        - pause: {}
+        - pause: { duration: 15 }
         - setWeight: 40
         - pause: { duration: 15 }
         - setWeight: 60
