@@ -15,6 +15,7 @@
 These requirements will be checked automatically if you use `demosh` to run
 this.
 
+<!-- @start_livecast -->
 <!-- @SHOW -->
 
 ## Verify that your cluster can run Linkerd
@@ -207,6 +208,26 @@ in production use cases.
 
 <!-- @wait_clear -->
 
+We'll use this approach to install Emissary-ingress so that we can have access
+to Faces without a port-forward. Here's our Application:
+
+```bash
+bat emissary/emissary-app.yaml
+```
+
+It has two separate `sources`: we've pulled YAML for Emissary's namespace and
+CRD definitions into our `emissary-app` directory, and we use a Helm chart for
+the rest. Let's go ahead and apply that:
+
+```bash
+kubectl apply -f emissary/emissary-app.yaml
+```
+
+Then we can sync it. We'll go back and watch that from the GUI.
+
+<!-- @browser_then_terminal -->
+<!-- @clear -->
+
 ## Argo CD will correct drift
 
 One of the major things that Argo CD can do is to correct drift between what's
@@ -351,70 +372,142 @@ Now we should see that all is well from the browser.
 
 <!-- @browser_then_terminal -->
 
-### DONE HERE
-<!-- @wait -->
+### Now let's play around with Argo Rollouts!
 
-This shows nothing, due to an unfortunate situation with the Kubernetes
-APIserver. We have two kinds of HTTPRoutes: those in the `policy.linkerd.io`
-API group and those in the `gateway.networking.k8s.io` API group. We can't
-control which will be attached to the short name `httproute`, and in practice
-`policy.linkerd.io` seems to win. So let's repeat that `kubectl get` with the
-fully-qualified HTTPRoute:
+Argo Rollouts are a nice progressive delivery tool. We'll use it to show
+progressive delivery of the `color` workload, down in the Faces call graph.
 
-<!-- @browser_then_terminal -->
+First, let's install Argo Rollouts. We'll start by creating its namespace and applying Rollouts itself:
 
+```bash
+kubectl create namespace argo-rollouts
+kubectl apply -n argo-rollouts -f https://github.com/argoproj/argo-rollouts/releases/latest/download/install.yaml
+```
+
+Next, since we want to use Gateway API to handle routing during progressive
+delivery, we need to apply some configuration. First is RBAC to allow Argo
+Rollouts to manipulate Gateway API HTTPRoutes.
+
+```bash
+kubectl apply -f argo-rollouts/rbac.yaml
+```
+
+After that is a ConfigMap that tells Argo Rollouts to use its Gateway API
+plugin for routing.
+
+```bash
+bat argo-rollouts/configmap.yaml
+kubectl apply -f argo-rollouts/configmap.yaml
+```
+
+Finally, we need to restart Rollouts to pick up the new configuration. (We
+need to install Rollouts before applying the configuration because the
+Rollouts RBAC relies on the ServiceAccount created when we install Rollouts!)
+
+```bash
+kubectl rollout restart  -n argo-rollouts deployment
+kubectl rollout status  -n argo-rollouts deployment
+```
 
 <!-- @wait_clear -->
 
-<!-- @browser_then_terminal -->
+### Switching Faces to include Rollouts
 
-### Now let's play around with Argo Rollouts!
+We're going to switch Faces to use Argo Rollouts for the `color` workload. We
+could do this by copying files into the `faces` directory -- but it's more
+clear for people reading this demo repo to edit the `faces` Application to
+point to the `faces-rollouts` directory in the repo, which we've already set
+up for Rollouts.
 
-19. First we need to install the argo-rollouts kubectl plugin. It is optional, but convenient for managing and visualizing rollout from the command line.
+Just change the `path` to `faces-rollouts` and we should be good to go.
 
-With Brew:
-```
-brew install argoproj/tap/kubectl-argo-rollouts
-```
-Manual:
-```
-curl -LO https://github.com/argoproj/argo-rollouts/releases/latest/download/kubectl-argo-rollouts-darwin-amd64
-```
-(for Linux distros, replace `darwin` with `linux` in the above command)
-
-Make the binary executable:
-```
-chmod +x ./kubectl-argo-rollouts-darwin-amd64
+```bash
+kubectl edit application -n argocd faces-app
 ```
 
-Move the binary to your PATH:
-```
-sudo mv ./kubectl-argo-rollouts-darwin-amd64 /usr/local/bin/kubectl-argo-rollouts
+Now we can resync the `faces` app. Note the new `--prune` flag, which tells
+Argo CD to delete any resources that are no longer in the app (specifically,
+the old `color` Deployment, which has been replaced by the `color-rollout`
+Rollout).
+
+```bash
+argocd app sync faces-app --prune
 ```
 
-Ensure you have it working properly:
-```
-kubectl argo rollouts version
-```
-20. Create the namespace for argo-rollouts and install the CRDs:
-```
-kubectl create namespace argo-rollouts
-```
-```
-kubectl apply -n argo-rollouts -f https://github.com/argoproj/argo-rollouts/releases/latest/download/install.yaml
-```
-21. Apply the `rollout.yaml` and `service.yaml` file from this repository:
-```
-kubectl apply -f https://raw.githubusercontent.com/reginapizza/Argo-Linkerd-Demo/main/argo-rollouts/rollout.yaml
-```
-```
-kubectl apply -f https://raw.githubusercontent.com/reginapizza/Argo-Linkerd-Demo/main/argo-rollouts/service.yaml
-```
-22. Now using the Argo Rollouts kubectl plugin, let's visualize the rollout as it deploys with:
-```
-kubectl argo rollouts get rollout faces-rollout --watch
+<!-- @wait_clear -->
+
+Once that's done, we can look at the status of the `color-rollout` Rollout:
+
+```bash
+kubectl argo rollouts -n faces get rollout color-rollout
 ```
 
+<!-- @wait_clear -->
 
+### Rolling out a new version of `color`
 
+To actually use rollout, we just need to edit the Rollout to change something.
+Let's switch our green color to purple: just change the value of the `COLOR` environment variable to `purple`.
 
+```bash
+kubectl edit rollout -n faces color-rollout
+```
+
+Now using the Argo Rollouts kubectl plugin, let's visualize the rollout as it
+deploys with. Once you start seeing some purple, you can use ^C to interrupt the watch.
+
+```bash
+kubectl argo rollouts -n faces get rollout faces-rollout --watch
+```
+
+Note that shows as Paused. Why?
+
+<!-- @wait_clear -->
+
+### Promoting the rollout
+
+If you look at the Rollout, you'll see this definition for the steps of the
+rollout:
+
+```
+      steps:
+        - setWeight: 30
+        - pause: {}
+        - setWeight: 40
+        - pause: { duration: 15 }
+        - setWeight: 60
+        - pause: { duration: 15 }
+        - setWeight: 80
+        - pause: { duration: 15 }
+```
+
+<!-- @wait -->
+
+Since there's no `duration` on the first `pause`, the rollout will pause until we explicitly promote it. Let's do that now.
+
+```bash
+kubectl argo rollouts -n faces promote color-rollout
+```
+
+Now we can run the watch again, and we'll see it continuing along until we
+have all purple, and the canary is scaled down.
+
+```bash
+kubectl argo rollouts -n faces get rollout faces-rollout --watch
+```
+
+<!-- @clear -->
+
+## Summary
+
+So that's a whirlwind tour of ArgoCD with Linkerd -- and note that we didn't
+use SMI at all, just Linkerd's native Gateway API support! Obviously, this is
+a very quick tour rather than a production-ready setup, but hopefully it gives
+you a sense of how Argo CD can be used to manage Linkerd and your
+applications.
+
+You can find the source for this demo at
+
+https://github.com/reginapizza/Argo-Linkerd-Demo/
+
+and we welcome feedback!
