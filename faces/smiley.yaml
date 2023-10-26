@@ -39,8 +39,8 @@ spec:
           value: "smiley"
         # - name: ERROR_FRACTION
         #   value: "20"
-        # - name: DELAY_BUCKETS
-        #   value: "0,5,10,15,20,50,200,500,1500"
+        - name: DELAY_BUCKETS
+          value: "0,5,10,15,20,50,200,500,750"
         resources:
           requests:
             cpu: 100m
