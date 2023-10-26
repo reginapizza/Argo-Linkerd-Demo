@@ -13,7 +13,7 @@ spec:
         plugins:
           argoproj-labs/gatewayAPI:
             httpRoute: color-route # our created httproute
-            namespace: faces
+            namespace: argo-rollouts
       steps:
         - setWeight: 30
         - pause: {}
