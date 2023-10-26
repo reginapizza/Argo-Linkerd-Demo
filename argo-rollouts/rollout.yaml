@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Rollout
 metadata:
   name: color-rollout
-  namespace: faces
+  namespace: argo-rollouts
 spec:
   replicas: 1
   strategy:
