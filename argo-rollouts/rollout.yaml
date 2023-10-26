@@ -1,15 +1,16 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Rollout
 metadata:
-  name: faces-rollout
+  name: color-rollout
   namespace: faces
 spec:
-  replicas: 5
+  replicas: 1
   strategy:
     canary:
       canaryService: color-canary
       stableService: color-stable
-      plugins:
+      trafficRouting:
+        plugins:
           argoproj-labs/gatewayAPI:
             httpRoute: color-route # our created httproute
             namespace: faces
@@ -42,6 +43,12 @@ spec:
           value: "color"
         - name: COLOR
           value: "green"
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 1
+          periodSeconds: 1
         resources:
           requests:
             cpu: 100m

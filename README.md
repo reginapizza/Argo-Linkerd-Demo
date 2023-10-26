@@ -189,6 +189,7 @@ argocd app sync linkerd-crds linkerd-control-plane
 
 You should see them both in sync and healthy in the Argo CD dashboard.
 
+<!-- @browser_then_terminal -->
 ## Argo CD Application resources
 
 Note that when you run `argocd app create`, what happens under the hood is
@@ -262,13 +263,10 @@ We have several files here:
 - `faces-gui.yaml` contains everything needed for the `faces-gui` workload,
   which serves the HTML and JavaScript of the Faces SPA.
 
-- `face.yaml` contains the Service and Deployment for the `face` workload.
+- `face.yaml`, `smiley.yaml`, and `color.yaml` contain the Services,
+  Deployments, and HTTPRoutes for our Faces demo workloads, except that
 
-- `face-route.yaml` contains the HTTPRoute that we'll use for rollouts of the
-  `face` workload.
-
-- `smiley.yaml` and `color.yaml`, finally, contain everything needed for the
-  `smiley` and `color` workloads.
+- `color-route.yaml` contains the HTTPRoute for the `color` workload.
 
 <!-- @wait -->
 
@@ -309,7 +307,7 @@ container, the other is the Linkerd proxy.
 Let's go ahead and check out Faces, via a port-forward.
 
 ```bash
-kubectl -n faces port-forward svc/faces-gui 8080:443 > /dev/null 2>&1 &
+kubectl -n faces port-forward svc/faces-gui 8000:80 > /dev/null 2>&1 &
 ```
 
 <!-- @browser_then_terminal -->
