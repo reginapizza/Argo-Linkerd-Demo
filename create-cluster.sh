@@ -30,6 +30,7 @@ k3d cluster delete $CLUSTER &>/dev/null
 
 # Don't install traefik or the metrics-server: we don't need them.
 k3d cluster create $CLUSTER \
+    -p "80:80@loadbalancer" -p "443:443@loadbalancer" \
     --k3s-arg '--disable=traefik,metrics-server@server:*;agents:*'
 
 #@wait
