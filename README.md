@@ -514,7 +514,15 @@ have all purple, and the canary is scaled down.
 kubectl argo rollouts -n faces get rollout color-rollout --watch
 ```
 
-<!-- @clear -->
+Argo Rollouts provides a UI to visualize this from our browser as well. The easy way to reach it is to first run:
+
+```bash
+kubectl argo rollouts dashboard
+```
+
+and then point your browser to https://localhost:3100/. You'll see our `color-rollout` in the `faces` namespace.
+
+<!-- @browser_then_terminal -->
 
 ## Summary
 
