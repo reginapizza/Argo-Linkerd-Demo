@@ -537,3 +537,75 @@ You can find the source for this demo at
 https://github.com/reginapizza/Argo-Linkerd-Demo/
 
 and we welcome feedback!
+
+-------------------------------------------------------------------------------
+
+# DEMO 2: REAL-WORLD GITOPS WITH ARGO CD AND LINKERD
+
+## Setting up Secrets Management
+
+Argo CD is un-opinionated about how secrets are managed. There are many ways to do it, and the best way will just depend on your own personal preferences and needs. 
+
+The following are some ways that people do secrets management:
+* Bitnami Sealed Secrets 
+* External Secrets Operator
+* Hashicorp Vault 
+* Bank-Vaults
+* Helm Secrets
+* Kustomize secret generator plugins
+* aws-secret-operator
+* KSOPS
+* argocd-vault-plugin
+* argocd-vault-replacer
+* Kubernetes Secrets Store CSI Driver
+* Vals-Operator
+
+
+## Cert-manager
+
+## Dealing with Linkerd Upgrades
+
+## Dealing with Argo CD Upgrades
+
+Upgrading Argo CD is a simple process, but depending on what changes are being introduced that might not always be the case. Always make sure to read a version's release notes before upgrading. A patch release will never introduce a breaking change, so no special instructions should be needed. A minor release may introduce breaking changes with workarounds, so read carefully. A major release introduces changes that are usually backwards-compatible, but you should always make a backup of your Argo CD settings (guide for this (here)[https://argo-cd.readthedocs.io/en/stable/operator-manual/disaster_recovery/]). 
+
+Once you understand what changes are being introduced, you can easily upgrade to your desired version with the following command: 
+
+```
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/<version>/manifests/install.yaml
+```
+
+Note: this is only for Non-HA (High Availability) installations of Argo CD. For how to upgrade using HA see the docs (here)[https://argo-cd.readthedocs.io/en/stable/operator-manual/upgrading/overview/]. 
+
+Even though some releases require only an image change, it is still recommended to apply the whole manifests set. Manifest changes might include important parameter modifications and applying the whole set will protect you from introducing misconfiguration.
+
+## Using Argo CD Sync-Waves 
+
+A “sync wave” is a mechanism to control the order of resource synchronization (aka deployment) during an application sync operation.
+
+All manifests have a sync wave of zero by default, but you can set these by using the argocd.argoproj.io/sync-wave annotation to add order to them, like so: 
+
+```
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+```
+
+Sync waves can also be negative numbers, like this:
+
+```
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "-3"
+```
+
+Argo CD will sync (or apply and then sync, if the resource is not already applied) the lowest sync wave item first (so, if you have a negative value that would be first), and then make sure it returns a "Healthy" status before moving on, and will continue that way until all resources report healthy. Note that Argo CD will NOT apply the next manifest/perform the next sync until the previous sync waves all report healthy. 
+
+You can have multiple resources in the same sync wave. In this case, Argo CD will choose what to sync first by Kind (Deployments, Services, Namespaces, etc.) and then by Name in ascending order. 
+
+
+
+
+
+
+
